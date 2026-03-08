@@ -245,6 +245,7 @@
       // Next button
       document.getElementById("next-btn").addEventListener("click", function () {
         current++;
+        answered = false;
         persistState();
         if (current < total) {
           renderQuestion();
