@@ -133,6 +133,7 @@
     var state = {
       questions: questions,
       current: 0,
+      answered: false,
       score: 0,
       streak: 0,
       bestStreak: 0,
@@ -160,12 +161,24 @@
     var xpEarned = state.xpEarned;
     var mistakeTexts = state.mistakeTexts;
 
+    // If the last question was already answered, advance past it
+    if (state.answered) {
+      current++;
+      if (current >= total) {
+        renderResults();
+        return;
+      }
+    }
+
     renderQuestion();
+
+    var answered = false;
 
     function persistState() {
       saveSession({
         questions: questions,
         current: current,
+        answered: answered,
         score: score,
         streak: streak,
         bestStreak: bestStreak,
@@ -180,6 +193,7 @@
     }
 
     function renderQuestion() {
+      answered = false;
       var q = questions[current];
 
       var streakHtml = '';
@@ -258,6 +272,7 @@
         if (streak > bestStreak) bestStreak = streak;
         var gained = XP_CORRECT + (streak > 1 ? streak * XP_STREAK_BONUS : 0);
         xpEarned += gained;
+        Stats.addXp(tid, gained);
         showXpPopup(e.target, "+" + gained + " XP");
       } else {
         buttons[chosen].classList.add("incorrect");
@@ -280,7 +295,8 @@
       // Show next button
       document.getElementById("next-btn").classList.add("visible");
 
-      // Persist after answering
+      // Mark as answered and persist
+      answered = true;
       persistState();
     }
 
@@ -299,14 +315,15 @@
 
       var pct = Math.round((score / total) * 100);
 
+      // XP already saved incrementally via Stats.addXp, pass 0 here
       if (!isMistakesMode) {
-        Stats.recordRun(tid, score, total, mistakeTexts, xpEarned, false);
+        Stats.recordRun(tid, score, total, mistakeTexts, 0, false);
       } else {
         var prev = Stats.getTest(tid);
         var stillWrong = {};
         for (var i = 0; i < mistakeTexts.length; i++) stillWrong[mistakeTexts[i]] = true;
         var updated = prev.mistakes.filter(function (m) { return stillWrong[m]; });
-        Stats.recordRun(tid, 0, 0, updated, xpEarned, true);
+        Stats.recordRun(tid, 0, 0, updated, 0, true);
       }
 
       var message, emoji;

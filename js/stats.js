@@ -70,6 +70,19 @@ var Stats = (function () {
     save(data);
   }
 
+  /** Add XP immediately (called after each correct answer). */
+  function addXp(testId, amount) {
+    var data = load();
+    var t = data.tests[testId] || {
+      bestPct: 0, bestScore: 0, bestTotal: 0,
+      attempts: 0, lastAttempt: null, xp: 0, mistakes: []
+    };
+    t.xp += amount;
+    data.tests[testId] = t;
+    data.totalXp += amount;
+    save(data);
+  }
+
   function getTotalXp() {
     return load().totalXp;
   }
@@ -81,6 +94,7 @@ var Stats = (function () {
   return {
     getTest: getTest,
     recordRun: recordRun,
+    addXp: addXp,
     getTotalXp: getTotalXp,
     getAllTests: getAllTests
   };

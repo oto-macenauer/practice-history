@@ -366,11 +366,43 @@ body {
   letter-spacing: 2px;
 }
 
+/* === Card Session Progress === */
+.card-session {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: #f0f4ff;
+  border-radius: 10px;
+  border: 1px solid #d5dff7;
+}
+
+.card-session-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #636e72;
+  margin-bottom: 0.4rem;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.card-session-bar {
+  height: 6px;
+  background: #dfe6e9;
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.card-session-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #74b9ff, #a29bfe);
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+
 .card-resume-btn {
   display: inline-block;
-  margin-top: 0.75rem;
-  margin-right: 0.5rem;
-  padding: 0.4rem 0.9rem;
+  padding: 0.35rem 0.85rem;
   font-size: 0.8rem;
   background: linear-gradient(135deg, #74b9ff, #a29bfe);
   color: #fff;

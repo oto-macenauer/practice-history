@@ -21,15 +21,22 @@
       '</div>';
   }
 
-  /** Check if an in-progress session exists for a given test id and mode. */
-  function hasActiveSession(tid, mistakesMode) {
+  /** Return session info { current, total, score, xpEarned } or null. */
+  function getSessionInfo(tid, mistakesMode) {
     var key = "history-practice-session-" + tid + (mistakesMode ? "-mistakes" : "");
     try {
       var s = JSON.parse(localStorage.getItem(key));
-      return s && s.questions && s.current < s.questions.length;
-    } catch (_) {
-      return false;
-    }
+      if (s && s.questions && s.current < s.questions.length) {
+        var answered = s.current + (s.answered ? 1 : 0);
+        return {
+          current: answered,
+          total: s.questions.length,
+          score: s.score || 0,
+          xpEarned: s.xpEarned || 0
+        };
+      }
+    } catch (_) {}
+    return null;
   }
 
   TEST_REGISTRY.forEach(function (test) {
@@ -49,14 +56,20 @@
         '</div>';
     }
 
-    // Check for active session
-    var activeSession = hasActiveSession(test.id, false);
-    var resumeHtml = '';
-    if (activeSession) {
-      resumeHtml =
-        '<a href="test.html?test=' + encodeURIComponent(test.id) + '" class="card-resume-btn">' +
-        'Pokračovat v testu' +
-        '</a>';
+    // Check for active session with progress details
+    var session = getSessionInfo(test.id, false);
+    var sessionHtml = '';
+    if (session) {
+      var pct = Math.round((session.current / session.total) * 100);
+      sessionHtml =
+        '<div class="card-session">' +
+          '<div class="card-session-header">' +
+            '<span>Rozdělaný test: ' + session.current + '/' + session.total + '</span>' +
+            '<span>' + session.score + ' správně · +' + session.xpEarned + ' XP</span>' +
+          '</div>' +
+          '<div class="card-session-bar"><div class="card-session-bar-fill" style="width:' + pct + '%"></div></div>' +
+          '<a href="test.html?test=' + encodeURIComponent(test.id) + '" class="card-resume-btn">Pokračovat</a>' +
+        '</div>';
     }
 
     var mistakesBtnHtml = '';
@@ -74,7 +87,7 @@
         "<p>" + test.description + "</p>" +
         metaHtml +
       '</a>' +
-      resumeHtml +
+      sessionHtml +
       mistakesBtnHtml;
 
     grid.appendChild(card);
