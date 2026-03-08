@@ -1,14 +1,16 @@
 /**
  * Test runner — loads questions, renders them one by one, scores results.
+ * Includes gamification (XP, streaks) and mistake tracking via Stats module.
  */
 (function () {
   var testArea = document.getElementById("test-area");
   var testTitle = document.getElementById("test-title");
   if (!testArea) return;
 
-  // Read test ID from URL
+  // Read params from URL
   var params = new URLSearchParams(window.location.search);
   var testId = params.get("test");
+  var mode = params.get("mode"); // "mistakes" = review only past mistakes
 
   if (!testId) {
     testArea.innerHTML = '<p class="loading">Nebyl vybrán žádný test.</p>';
@@ -40,12 +42,35 @@
       testArea.innerHTML = '<p class="loading">Žádné otázky nenalezeny.</p>';
       return;
     }
-    startTest(QUESTIONS);
+    var pool = QUESTIONS;
+    if (mode === "mistakes") {
+      pool = filterMistakes(QUESTIONS, testId);
+      if (!pool.length) {
+        testArea.innerHTML =
+          '<div class="results-card">' +
+          '<h2>Žádné chyby k procvičení!</h2>' +
+          '<p style="margin-bottom:1.5rem">Zatím jsi neudělal/a žádné chyby, nebo jsi tento test ještě nespustil/a.</p>' +
+          '<a href="test.html?test=' + encodeURIComponent(testId) + '" class="btn btn-primary">Spustit celý test</a>' +
+          '</div>';
+        return;
+      }
+    }
+    startTest(pool, testId, mode === "mistakes");
   };
   script.onerror = function () {
     testArea.innerHTML = '<p class="loading">Nepodařilo se načíst otázky.</p>';
   };
   document.head.appendChild(script);
+
+  /** Filter QUESTIONS to only those whose text appears in stored mistakes. */
+  function filterMistakes(allQuestions, tid) {
+    var saved = Stats.getTest(tid);
+    var set = {};
+    for (var i = 0; i < saved.mistakes.length; i++) {
+      set[saved.mistakes[i]] = true;
+    }
+    return allQuestions.filter(function (q) { return set[q.question]; });
+  }
 
   // --- Shuffle helper ---
   function shuffle(arr) {
@@ -59,33 +84,54 @@
     return a;
   }
 
+  // --- XP config ---
+  var XP_CORRECT = 10;
+  var XP_STREAK_BONUS = 5; // extra per streak step (streak * bonus)
+
   // --- Test engine ---
-  function startTest(originalQuestions) {
+  function startTest(originalQuestions, tid, isMistakesMode) {
     var questions = shuffle(originalQuestions).map(function (q) {
-      // Shuffle options, tracking correct answer
       var indices = q.options.map(function (_, i) { return i; });
       var shuffled = shuffle(indices);
       return {
         question: q.question,
         options: shuffled.map(function (i) { return q.options[i]; }),
         correct: shuffled.indexOf(q.correct),
-        explanation: q.explanation || ""
+        explanation: q.explanation || "",
+        originalQuestion: q.question // for mistake tracking
       };
     });
 
     var current = 0;
     var score = 0;
     var total = questions.length;
+    var streak = 0;
+    var bestStreak = 0;
+    var xpEarned = 0;
+    var mistakeTexts = []; // question texts answered wrong
 
     renderQuestion();
 
     function renderQuestion() {
       var q = questions[current];
 
+      var streakHtml = '';
+      if (streak >= 2) {
+        streakHtml = '<div class="streak-badge">' + streak + 'x série!</div>';
+      }
+
       var html =
-        '<div class="progress-text">Otázka ' + (current + 1) + " z " + total + "</div>" +
+        '<div class="hud">' +
+          '<div class="hud-item"><span class="hud-label">XP</span><span class="hud-value" id="hud-xp">' + xpEarned + '</span></div>' +
+          '<div class="hud-item"><span class="hud-label">Správně</span><span class="hud-value">' + score + '/' + (current) + '</span></div>' +
+          '<div class="hud-item"><span class="hud-label">Série</span><span class="hud-value" id="hud-streak">' + streak + '</span></div>' +
+        '</div>' +
+        '<div class="progress-text">Otázka ' + (current + 1) + " z " + total +
+        (isMistakesMode ? ' <span class="mistakes-mode-label">Procvičování chyb</span>' : '') +
+        "</div>" +
         '<div class="progress-bar-container"><div class="progress-bar" style="width:' +
         ((current / total) * 100) + '%"></div></div>' +
+        streakHtml +
         '<div class="question-card">' +
         '<div class="question-text">' + q.question + "</div>" +
         '<div class="answers">';
@@ -134,9 +180,23 @@
 
       if (chosen === q.correct) {
         score++;
+        streak++;
+        if (streak > bestStreak) bestStreak = streak;
+        var gained = XP_CORRECT + (streak > 1 ? streak * XP_STREAK_BONUS : 0);
+        xpEarned += gained;
+        // Animate XP gain
+        showXpPopup(e.target, "+" + gained + " XP");
       } else {
         buttons[chosen].classList.add("incorrect");
+        streak = 0;
+        mistakeTexts.push(q.originalQuestion);
       }
+
+      // Update HUD
+      var hudXp = document.getElementById("hud-xp");
+      var hudStreak = document.getElementById("hud-streak");
+      if (hudXp) hudXp.textContent = xpEarned;
+      if (hudStreak) hudStreak.textContent = streak;
 
       // Show explanation
       var expl = document.getElementById("explanation");
@@ -148,30 +208,71 @@
       document.getElementById("next-btn").classList.add("visible");
     }
 
+    function showXpPopup(anchor, text) {
+      var popup = document.createElement("div");
+      popup.className = "xp-popup";
+      popup.textContent = text;
+      anchor.style.position = "relative";
+      anchor.appendChild(popup);
+      setTimeout(function () { popup.remove(); }, 900);
+    }
+
     function renderResults() {
       var pct = Math.round((score / total) * 100);
-      var message;
 
+      // Save stats (for full test, merge mistakes; for mistakes mode, keep only still-wrong ones)
+      if (!isMistakesMode) {
+        Stats.recordRun(tid, score, total, mistakeTexts, xpEarned, false);
+      } else {
+        // In mistakes mode, only update XP and shrink the mistakes list
+        var prev = Stats.getTest(tid);
+        var stillWrong = {};
+        for (var i = 0; i < mistakeTexts.length; i++) stillWrong[mistakeTexts[i]] = true;
+        var updated = prev.mistakes.filter(function (m) { return stillWrong[m]; });
+        Stats.recordRun(tid, 0, 0, updated, xpEarned, true);
+      }
+
+      var message, emoji;
       if (pct === 100) {
         message = "Výborně! Máš vše správně!";
+        emoji = "🏆";
       } else if (pct >= 80) {
         message = "Skvělá práce! Jen pár chybiček.";
+        emoji = "⭐";
       } else if (pct >= 60) {
         message = "Dobrá práce, ale zkus to ještě jednou!";
+        emoji = "👍";
       } else if (pct >= 40) {
         message = "Ještě je co zlepšovat. Nevzdávej to!";
+        emoji = "💪";
       } else {
         message = "Zkus si učivo znovu projít a pak to zkus znovu.";
+        emoji = "📖";
+      }
+
+      var stars = pct >= 90 ? "★★★" : pct >= 70 ? "★★☆" : pct >= 40 ? "★☆☆" : "☆☆☆";
+
+      var mistakeBtnHtml = '';
+      if (mistakeTexts.length > 0) {
+        mistakeBtnHtml =
+          '<a href="test.html?test=' + encodeURIComponent(tid) + '&mode=mistakes" class="btn btn-warning">' +
+          'Procvičit chyby (' + mistakeTexts.length + ')' +
+          '</a>';
       }
 
       testArea.innerHTML =
         '<div class="results-card">' +
+        '<div class="results-emoji">' + emoji + '</div>' +
         "<h2>Výsledky</h2>" +
+        '<div class="results-stars">' + stars + '</div>' +
         '<div class="results-score">' + score + " / " + total + "</div>" +
         '<div class="results-percentage">' + pct + " %</div>" +
+        '<div class="results-xp">+' + xpEarned + ' XP</div>' +
+        (bestStreak >= 2 ? '<div class="results-streak">Nejdelší série: ' + bestStreak + 'x</div>' : '') +
         '<div class="results-message">' + message + "</div>" +
         '<div class="results-buttons">' +
         '<button class="btn btn-primary" onclick="location.reload()">Zkusit znovu</button>' +
+        mistakeBtnHtml +
         '<a href="index.html" class="btn btn-secondary">Zpět na hlavní stránku</a>' +
         "</div></div>";
     }
