@@ -1,6 +1,7 @@
 /**
  * Test runner — loads questions, renders them one by one, scores results.
- * Includes gamification (XP, streaks) and mistake tracking via Stats module.
+ * Includes gamification (XP, streaks), mistake tracking via Stats module,
+ * and session persistence so refreshing / navigating away resumes the test.
  */
 (function () {
   var testArea = document.getElementById("test-area");
@@ -32,7 +33,26 @@
   }
 
   testTitle.textContent = testInfo.title;
-  document.title = testInfo.title + " — Procvičování dějepisu";
+  document.title = testInfo.title + " — Procvičování vlastivědy";
+
+  // --- Session persistence helpers ---
+  var SESSION_KEY = "history-practice-session-" + testId + (mode === "mistakes" ? "-mistakes" : "");
+
+  function saveSession(data) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+  }
+
+  function loadSession() {
+    try {
+      return JSON.parse(localStorage.getItem(SESSION_KEY));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function clearSession() {
+    localStorage.removeItem(SESSION_KEY);
+  }
 
   // Load question file dynamically
   var script = document.createElement("script");
@@ -55,7 +75,15 @@
         return;
       }
     }
-    startTest(pool, testId, mode === "mistakes");
+
+    // Check for saved session
+    var saved = loadSession();
+    if (saved && saved.questions && saved.current < saved.questions.length) {
+      resumeTest(saved, testId, mode === "mistakes");
+    } else {
+      clearSession();
+      startTest(pool, testId, mode === "mistakes");
+    }
   };
   script.onerror = function () {
     testArea.innerHTML = '<p class="loading">Nepodařilo se načíst otázky.</p>';
@@ -86,9 +114,9 @@
 
   // --- XP config ---
   var XP_CORRECT = 10;
-  var XP_STREAK_BONUS = 5; // extra per streak step (streak * bonus)
+  var XP_STREAK_BONUS = 5;
 
-  // --- Test engine ---
+  // --- Start a fresh test ---
   function startTest(originalQuestions, tid, isMistakesMode) {
     var questions = shuffle(originalQuestions).map(function (q) {
       var indices = q.options.map(function (_, i) { return i; });
@@ -98,19 +126,58 @@
         options: shuffled.map(function (i) { return q.options[i]; }),
         correct: shuffled.indexOf(q.correct),
         explanation: q.explanation || "",
-        originalQuestion: q.question // for mistake tracking
+        originalQuestion: q.question
       };
     });
 
-    var current = 0;
-    var score = 0;
+    var state = {
+      questions: questions,
+      current: 0,
+      score: 0,
+      streak: 0,
+      bestStreak: 0,
+      xpEarned: 0,
+      mistakeTexts: []
+    };
+
+    saveSession(state);
+    runEngine(state, tid, isMistakesMode);
+  }
+
+  // --- Resume from saved session ---
+  function resumeTest(state, tid, isMistakesMode) {
+    runEngine(state, tid, isMistakesMode);
+  }
+
+  // --- Shared engine ---
+  function runEngine(state, tid, isMistakesMode) {
+    var questions = state.questions;
     var total = questions.length;
-    var streak = 0;
-    var bestStreak = 0;
-    var xpEarned = 0;
-    var mistakeTexts = []; // question texts answered wrong
+    var current = state.current;
+    var score = state.score;
+    var streak = state.streak;
+    var bestStreak = state.bestStreak;
+    var xpEarned = state.xpEarned;
+    var mistakeTexts = state.mistakeTexts;
 
     renderQuestion();
+
+    function persistState() {
+      saveSession({
+        questions: questions,
+        current: current,
+        score: score,
+        streak: streak,
+        bestStreak: bestStreak,
+        xpEarned: xpEarned,
+        mistakeTexts: mistakeTexts
+      });
+    }
+
+    function handleStartOver() {
+      clearSession();
+      location.reload();
+    }
 
     function renderQuestion() {
       var q = questions[current];
@@ -121,6 +188,9 @@
       }
 
       var html =
+        '<div class="test-toolbar">' +
+          '<button class="btn btn-small btn-secondary" id="start-over-btn">Začít znovu</button>' +
+        '</div>' +
         '<div class="hud">' +
           '<div class="hud-item"><span class="hud-label">XP</span><span class="hud-value" id="hud-xp">' + xpEarned + '</span></div>' +
           '<div class="hud-item"><span class="hud-label">Správně</span><span class="hud-value">' + score + '/' + (current) + '</span></div>' +
@@ -149,14 +219,19 @@
 
       testArea.innerHTML = html;
 
-      // Attach event listeners
+      // Start over button
+      document.getElementById("start-over-btn").addEventListener("click", handleStartOver);
+
+      // Answer buttons
       var buttons = testArea.querySelectorAll(".answer-btn");
       for (var i = 0; i < buttons.length; i++) {
         buttons[i].addEventListener("click", handleAnswer);
       }
 
+      // Next button
       document.getElementById("next-btn").addEventListener("click", function () {
         current++;
+        persistState();
         if (current < total) {
           renderQuestion();
         } else {
@@ -170,7 +245,6 @@
       var q = questions[current];
       var buttons = testArea.querySelectorAll(".answer-btn");
 
-      // Disable all buttons
       for (var i = 0; i < buttons.length; i++) {
         buttons[i].disabled = true;
         if (i === q.correct) {
@@ -184,7 +258,6 @@
         if (streak > bestStreak) bestStreak = streak;
         var gained = XP_CORRECT + (streak > 1 ? streak * XP_STREAK_BONUS : 0);
         xpEarned += gained;
-        // Animate XP gain
         showXpPopup(e.target, "+" + gained + " XP");
       } else {
         buttons[chosen].classList.add("incorrect");
@@ -206,6 +279,9 @@
 
       // Show next button
       document.getElementById("next-btn").classList.add("visible");
+
+      // Persist after answering
+      persistState();
     }
 
     function showXpPopup(anchor, text) {
@@ -218,13 +294,14 @@
     }
 
     function renderResults() {
+      // Clear session — test is complete
+      clearSession();
+
       var pct = Math.round((score / total) * 100);
 
-      // Save stats (for full test, merge mistakes; for mistakes mode, keep only still-wrong ones)
       if (!isMistakesMode) {
         Stats.recordRun(tid, score, total, mistakeTexts, xpEarned, false);
       } else {
-        // In mistakes mode, only update XP and shrink the mistakes list
         var prev = Stats.getTest(tid);
         var stillWrong = {};
         for (var i = 0; i < mistakeTexts.length; i++) stillWrong[mistakeTexts[i]] = true;

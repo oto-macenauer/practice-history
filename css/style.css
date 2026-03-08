@@ -366,6 +366,24 @@ body {
   letter-spacing: 2px;
 }
 
+.card-resume-btn {
+  display: inline-block;
+  margin-top: 0.75rem;
+  margin-right: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  background: linear-gradient(135deg, #74b9ff, #a29bfe);
+  color: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: opacity 0.15s ease;
+}
+
+.card-resume-btn:hover {
+  opacity: 0.85;
+}
+
 .card-mistake-btn {
   display: inline-block;
   margin-top: 0.75rem;
@@ -381,6 +399,19 @@ body {
 
 .card-mistake-btn:hover {
   background: #fdcb6e;
+}
+
+/* === Test Toolbar === */
+.test-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.btn-small {
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8rem;
+  border-radius: 8px;
 }
 
 /* === HUD (in-test top bar) === */

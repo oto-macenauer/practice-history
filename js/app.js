@@ -21,6 +21,17 @@
       '</div>';
   }
 
+  /** Check if an in-progress session exists for a given test id and mode. */
+  function hasActiveSession(tid, mistakesMode) {
+    var key = "history-practice-session-" + tid + (mistakesMode ? "-mistakes" : "");
+    try {
+      var s = JSON.parse(localStorage.getItem(key));
+      return s && s.questions && s.current < s.questions.length;
+    } catch (_) {
+      return false;
+    }
+  }
+
   TEST_REGISTRY.forEach(function (test) {
     var s = allTests[test.id];
     var card = document.createElement("div");
@@ -38,6 +49,16 @@
         '</div>';
     }
 
+    // Check for active session
+    var activeSession = hasActiveSession(test.id, false);
+    var resumeHtml = '';
+    if (activeSession) {
+      resumeHtml =
+        '<a href="test.html?test=' + encodeURIComponent(test.id) + '" class="card-resume-btn">' +
+        'Pokračovat v testu' +
+        '</a>';
+    }
+
     var mistakesBtnHtml = '';
     if (s && s.mistakes && s.mistakes.length > 0) {
       mistakesBtnHtml =
@@ -53,6 +74,7 @@
         "<p>" + test.description + "</p>" +
         metaHtml +
       '</a>' +
+      resumeHtml +
       mistakesBtnHtml;
 
     grid.appendChild(card);
