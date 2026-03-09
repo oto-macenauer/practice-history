@@ -1,39 +1,94 @@
 /**
- * Dashboard — renders test cards from the registry with stats from localStorage.
+ * Dashboard — renders test cards, global stats, nickname bar, sidebar tabs (badges + leaderboard).
  */
 (function () {
   var grid = document.getElementById("card-grid");
   if (!grid) return;
 
-  // Show total XP bar
+  // --- Nickname bar (non-intrusive) ---
+  var nicknameBar = document.getElementById("nickname-bar");
+  var nicknameForm = document.getElementById("nickname-form");
+  var nicknameInput = document.getElementById("nickname-input");
+  var nicknameDismiss = document.getElementById("nickname-dismiss");
+
+  var currentNick = Fire.getNickname();
+
+  if (!currentNick && nicknameBar) {
+    nicknameBar.style.display = "";
+  }
+
+  if (nicknameForm) {
+    nicknameForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var val = nicknameInput.value.trim();
+      if (!val) return;
+      Fire.setNickname(val);
+      nicknameBar.style.display = "none";
+      currentNick = val;
+      Fire.syncTotalXp();
+      checkAndAwardXpBadges();
+      renderGlobalStats();
+      // Show leaderboard tab now that we have a nickname
+      showLeaderboardTab();
+      Fire.onMyData(function (data) {
+        renderBadges(data.badges || []);
+      });
+    });
+  }
+
+  if (nicknameDismiss) {
+    nicknameDismiss.addEventListener("click", function () {
+      nicknameBar.style.display = "none";
+    });
+  }
+
+  // --- Global stats ---
   var totalXp = Stats.getTotalXp();
   var allTests = Stats.getAllTests();
 
   var statsBar = document.getElementById("global-stats");
-  if (statsBar) {
+  function renderGlobalStats() {
+    if (!statsBar) return;
     var level = Math.floor(totalXp / 500) + 1;
     var xpInLevel = totalXp % 500;
+    var nickHtml = '';
+    if (currentNick) {
+      nickHtml = '<span class="stat-chip stat-chip-nick" id="nick-chip" title="Klikni pro změnu přezdívky">' + escHtml(currentNick) + '</span>';
+    }
     statsBar.innerHTML =
       '<div class="global-stats-inner">' +
+        nickHtml +
         '<span class="stat-chip">Úroveň ' + level + '</span>' +
         '<span class="stat-chip">' + totalXp + ' XP</span>' +
         '<div class="level-bar"><div class="level-bar-fill" style="width:' + ((xpInLevel / 500) * 100) + '%"></div></div>' +
       '</div>';
+
+    var nickChip = document.getElementById("nick-chip");
+    if (nickChip) {
+      nickChip.addEventListener("click", function () {
+        nicknameBar.style.display = "";
+        nicknameInput.value = currentNick || "";
+        nicknameInput.focus();
+      });
+    }
   }
 
-  /** Return session info { current, total, score, xpEarned } or null. */
+  renderGlobalStats();
+
+  // --- Sync XP to Firebase on dashboard load ---
+  if (currentNick) {
+    Fire.syncTotalXp();
+    checkAndAwardXpBadges();
+  }
+
+  // --- Test cards ---
   function getSessionInfo(tid, mistakesMode) {
     var key = "history-practice-session-" + tid + (mistakesMode ? "-mistakes" : "");
     try {
       var s = JSON.parse(localStorage.getItem(key));
       if (s && s.questions && s.current < s.questions.length) {
         var answered = s.current + (s.answered ? 1 : 0);
-        return {
-          current: answered,
-          total: s.questions.length,
-          score: s.score || 0,
-          xpEarned: s.xpEarned || 0
-        };
+        return { current: answered, total: s.questions.length, score: s.score || 0, xpEarned: s.xpEarned || 0 };
       }
     } catch (_) {}
     return null;
@@ -56,7 +111,6 @@
         '</div>';
     }
 
-    // Check for active session with progress details
     var session = getSessionInfo(test.id, false);
     var sessionHtml = '';
     if (session) {
@@ -92,4 +146,127 @@
 
     grid.appendChild(card);
   });
+
+  // --- Sidebar tabs ---
+  var tabBadges = document.getElementById("tab-badges");
+  var tabLeaderboard = document.getElementById("tab-leaderboard");
+  var paneBadges = document.getElementById("pane-badges");
+  var paneLeaderboard = document.getElementById("pane-leaderboard");
+
+  // Hide leaderboard tab if no nickname
+  if (!currentNick && tabLeaderboard) {
+    tabLeaderboard.style.display = "none";
+  }
+
+  function showLeaderboardTab() {
+    if (tabLeaderboard) tabLeaderboard.style.display = "";
+  }
+
+  function switchTab(tab) {
+    tabBadges.classList.toggle("active", tab === "badges");
+    tabLeaderboard.classList.toggle("active", tab === "leaderboard");
+    paneBadges.classList.toggle("active", tab === "badges");
+    paneLeaderboard.classList.toggle("active", tab === "leaderboard");
+  }
+
+  if (tabBadges) tabBadges.addEventListener("click", function () { switchTab("badges"); });
+  if (tabLeaderboard) tabLeaderboard.addEventListener("click", function () { switchTab("leaderboard"); });
+
+  // --- Badges list ---
+  var badgesListEl = document.getElementById("badges-list");
+
+  function renderBadges(earnedIds) {
+    var all = Badges.getAll();
+    var earnedSet = {};
+    for (var i = 0; i < earnedIds.length; i++) earnedSet[earnedIds[i]] = true;
+
+    var earnedCount = 0;
+    var html = '';
+    for (var i = 0; i < all.length; i++) {
+      var b = all[i];
+      var earned = earnedSet[b.id];
+      if (earned) earnedCount++;
+      html +=
+        '<div class="badge-item' + (earned ? ' badge-earned-item' : ' badge-locked') + '">' +
+          '<span class="badge-item-icon">' + (earned ? b.icon : '🔒') + '</span>' +
+          '<div class="badge-item-info">' +
+            '<span class="badge-item-label">' + escHtml(b.label) + '</span>' +
+            '<span class="badge-item-desc">' + escHtml(b.desc) + '</span>' +
+          '</div>' +
+        '</div>';
+    }
+
+    html = '<div class="badges-counter">' + earnedCount + ' / ' + all.length + '</div>' + html;
+    badgesListEl.innerHTML = html;
+  }
+
+  if (currentNick) {
+    Fire.onMyData(function (data) {
+      renderBadges(data.badges || []);
+    });
+  } else {
+    renderBadges([]);
+  }
+
+  // --- Leaderboard (real-time) ---
+  var leaderboardEl = document.getElementById("leaderboard");
+
+  Fire.onLeaderboard(function (entries) {
+    if (!entries.length) {
+      leaderboardEl.innerHTML = '<p class="leaderboard-empty">Zatím tu nikdo není. Buď první!</p>';
+      return;
+    }
+
+    var html = '<div class="lb-list">';
+
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      var level = Math.floor(e.xp / 500) + 1;
+      var isMe = currentNick && e.nickname === currentNick;
+      var rankIcon = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
+
+      var badgeHtml = '';
+      for (var j = 0; j < e.badges.length; j++) {
+        var b = Badges.getById(e.badges[j]);
+        if (b) {
+          badgeHtml += '<span class="lb-badge" title="' + escHtml(b.label) + '">' + b.icon + '</span>';
+        }
+      }
+
+      html += '<div class="lb-row' + (isMe ? ' lb-me' : '') + '">' +
+        '<span class="lb-rank">' + rankIcon + '</span>' +
+        '<div class="lb-info">' +
+          '<div class="lb-nick">' + escHtml(e.nickname) + '</div>' +
+          '<div class="lb-meta">' +
+            '<span class="lb-xp">' + e.xp + ' XP</span>' +
+            '<span>Úr. ' + level + '</span>' +
+          '</div>' +
+        '</div>' +
+        (badgeHtml ? '<span class="lb-badges">' + badgeHtml + '</span>' : '') +
+        '</div>';
+    }
+
+    html += '</div>';
+    leaderboardEl.innerHTML = html;
+  }, function () {
+    leaderboardEl.innerHTML = '<p class="leaderboard-error">Nepodařilo se načíst žebříček. Zkontroluj připojení.</p>';
+  });
+
+  // --- XP badge check helper ---
+  function checkAndAwardXpBadges() {
+    var nick = Fire.getNickname();
+    if (!nick) return;
+    var xp = Stats.getTotalXp();
+    var newBadges = Badges.checkXpBadges(xp, []);
+    for (var i = 0; i < newBadges.length; i++) {
+      Fire.awardBadge(newBadges[i]);
+    }
+  }
+
+  // --- Helpers ---
+  function escHtml(str) {
+    var d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
+  }
 })();

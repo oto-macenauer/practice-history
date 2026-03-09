@@ -160,6 +160,7 @@
     var bestStreak = state.bestStreak;
     var xpEarned = state.xpEarned;
     var mistakeTexts = state.mistakeTexts;
+    var _newBadges = [];
 
     // If the last question was already answered, advance past it
     if (state.answered) {
@@ -274,6 +275,7 @@
         var gained = XP_CORRECT + (streak > 1 ? streak * XP_STREAK_BONUS : 0);
         xpEarned += gained;
         Stats.addXp(tid, gained);
+        Fire.addXp(gained);
         showXpPopup(e.target, "+" + gained + " XP");
       } else {
         buttons[chosen].classList.add("incorrect");
@@ -327,6 +329,24 @@
         Stats.recordRun(tid, 0, 0, updated, 0, true);
       }
 
+      // Award badges
+      if (Fire.getNickname()) {
+        // Perfect test badge
+        var perfectBadge = Badges.checkPerfectBadge(tid, score, total, isMistakesMode);
+        if (perfectBadge) {
+          Fire.awardBadge(perfectBadge);
+          _newBadges.push(perfectBadge);
+        }
+        // XP milestone badges
+        var xpBadges = Badges.checkXpBadges(Stats.getTotalXp(), []);
+        for (var bi = 0; bi < xpBadges.length; bi++) {
+          Fire.awardBadge(xpBadges[bi]);
+          _newBadges.push(xpBadges[bi]);
+        }
+        // Sync total XP
+        Fire.syncTotalXp();
+      }
+
       var message, emoji;
       if (pct === 100) {
         message = "Výborně! Máš vše správně!";
@@ -355,6 +375,22 @@
           '</a>';
       }
 
+      // Build badge notification
+      var badgeNotifHtml = '';
+      if (_newBadges.length > 0) {
+        badgeNotifHtml = '<div class="results-badges">';
+        for (var nb = 0; nb < _newBadges.length; nb++) {
+          var bDef = Badges.getById(_newBadges[nb]);
+          if (bDef) {
+            badgeNotifHtml += '<div class="badge-earned">' +
+              '<span class="badge-earned-icon">' + bDef.icon + '</span>' +
+              '<span class="badge-earned-text">' + bDef.label + '</span>' +
+              '</div>';
+          }
+        }
+        badgeNotifHtml += '</div>';
+      }
+
       testArea.innerHTML =
         '<div class="results-card">' +
         '<div class="results-emoji">' + emoji + '</div>' +
@@ -364,6 +400,7 @@
         '<div class="results-percentage">' + pct + " %</div>" +
         '<div class="results-xp">+' + xpEarned + ' XP</div>' +
         (bestStreak >= 2 ? '<div class="results-streak">Nejdelší série: ' + bestStreak + 'x</div>' : '') +
+        badgeNotifHtml +
         '<div class="results-message">' + message + "</div>" +
         '<div class="results-buttons">' +
         '<button class="btn btn-primary" onclick="location.reload()">Zkusit znovu</button>' +
