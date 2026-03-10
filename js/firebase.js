@@ -2,7 +2,7 @@
  * Firebase integration — real-time XP leaderboard sync.
  *
  * Data structure in Realtime Database:
- * /leaderboard/{nickname}: { xp: Number, badges: [String], lastUpdate: Number }
+ * /leaderboard/{nickname}: { xp: Number, badges: [String], mistakes: { [testId]: [String] }, lastUpdate: Number }
  *
  * Seeding: On the first XP claim for a given nickname, localStorage totalXp is
  * used as the starting value. Subsequent sessions (same or different device)
@@ -75,7 +75,7 @@ var Fire = (function () {
     });
   }
 
-  /** Sync total XP (called after test completion or manual sync). */
+  /** Sync total XP bidirectionally — use the higher of local and Firebase. */
   function syncTotalXp() {
     init();
     var nick = getNickname();
@@ -92,13 +92,33 @@ var Fire = (function () {
           lastUpdate: firebase.database.ServerValue.TIMESTAMP
         };
       }
-      // Only update if local is higher (handles seeding + catch-up)
-      if (localXp > (current.xp || 0)) {
-        current.xp = localXp;
-      }
+      var firebaseXp = current.xp || 0;
+      var maxXp = Math.max(localXp, firebaseXp);
+      current.xp = maxXp;
       current.lastUpdate = firebase.database.ServerValue.TIMESTAMP;
       return current;
+    }, function (error, committed, snapshot) {
+      if (!error && snapshot) {
+        var serverXp = (snapshot.val() && snapshot.val().xp) || 0;
+        if (serverXp > Stats.getTotalXp()) {
+          Stats.setTotalXp(serverXp);
+        }
+      }
     });
+  }
+
+  /** Sync mistakes for a test to Firebase. */
+  function syncMistakes(testId, mistakeTexts) {
+    init();
+    var nick = getNickname();
+    if (!nick) return;
+
+    var mistakesRef = db.ref("leaderboard/" + encodeNick(nick) + "/mistakes/" + testId);
+    if (mistakeTexts && mistakeTexts.length > 0) {
+      mistakesRef.set(mistakeTexts);
+    } else {
+      mistakesRef.remove();
+    }
   }
 
   /** Award a badge to the current nickname. */
@@ -183,6 +203,7 @@ var Fire = (function () {
     getNickname: getNickname,
     addXp: addXp,
     syncTotalXp: syncTotalXp,
+    syncMistakes: syncMistakes,
     awardBadge: awardBadge,
     onLeaderboard: onLeaderboard,
     onMyData: onMyData,

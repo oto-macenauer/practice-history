@@ -329,6 +329,14 @@
         Stats.recordRun(tid, 0, 0, updated, 0, true);
       }
 
+      // Sync mistakes to Firebase
+      if (Fire.getNickname()) {
+        var currentMistakes = isMistakesMode
+          ? Stats.getTest(tid).mistakes
+          : mistakeTexts;
+        Fire.syncMistakes(tid, currentMistakes);
+      }
+
       // Award badges
       if (Fire.getNickname()) {
         // Perfect test badge

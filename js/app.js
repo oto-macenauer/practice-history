@@ -31,7 +31,19 @@
       // Show leaderboard tab now that we have a nickname
       showLeaderboardTab();
       Fire.onMyData(function (data) {
-        renderBadges(data.badges || []);
+        var earnedBadges = data.badges || [];
+        renderBadges(earnedBadges);
+        var firebaseXp = data.xp || 0;
+        if (firebaseXp > Stats.getTotalXp()) {
+          Stats.setTotalXp(firebaseXp);
+          totalXp = firebaseXp;
+          renderGlobalStats();
+        }
+        var maxXp = Math.max(Stats.getTotalXp(), firebaseXp);
+        var xpBadges = Badges.checkXpBadges(maxXp, earnedBadges);
+        for (var i = 0; i < xpBadges.length; i++) {
+          Fire.awardBadge(xpBadges[i]);
+        }
       });
     });
   }
@@ -202,7 +214,21 @@
 
   if (currentNick) {
     Fire.onMyData(function (data) {
-      renderBadges(data.badges || []);
+      var earnedBadges = data.badges || [];
+      renderBadges(earnedBadges);
+      // Sync local XP from Firebase (use the higher value)
+      var firebaseXp = data.xp || 0;
+      if (firebaseXp > Stats.getTotalXp()) {
+        Stats.setTotalXp(firebaseXp);
+        totalXp = firebaseXp;
+        renderGlobalStats();
+      }
+      // Award XP badges using the higher XP
+      var maxXp = Math.max(Stats.getTotalXp(), firebaseXp);
+      var xpBadges = Badges.checkXpBadges(maxXp, earnedBadges);
+      for (var i = 0; i < xpBadges.length; i++) {
+        Fire.awardBadge(xpBadges[i]);
+      }
     });
   } else {
     renderBadges([]);

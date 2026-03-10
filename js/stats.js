@@ -87,6 +87,13 @@ var Stats = (function () {
     return load().totalXp;
   }
 
+  /** Set totalXp to the given value (used to sync from Firebase). */
+  function setTotalXp(value) {
+    var data = load();
+    data.totalXp = value;
+    save(data);
+  }
+
   function getAllTests() {
     return load().tests;
   }
@@ -96,6 +103,7 @@ var Stats = (function () {
     recordRun: recordRun,
     addXp: addXp,
     getTotalXp: getTotalXp,
+    setTotalXp: setTotalXp,
     getAllTests: getAllTests
   };
 })();
