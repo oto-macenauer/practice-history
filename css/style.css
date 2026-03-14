@@ -632,6 +632,23 @@ body {
   font-weight: 700;
 }
 
+.nickname-hidden-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.nickname-hidden-cb {
+  accent-color: #fff;
+  cursor: pointer;
+  margin: 0;
+}
+
 .nickname-dismiss {
   background: none;
   border: none;

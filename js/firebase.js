@@ -147,9 +147,17 @@ var Fire = (function () {
     });
   }
 
+  /** Set the hidden flag for the current nickname. */
+  function setHidden(hidden) {
+    init();
+    var nick = getNickname();
+    if (!nick) return;
+    db.ref("leaderboard/" + encodeNick(nick) + "/hidden").set(!!hidden);
+  }
+
   /**
    * Listen to the full leaderboard in real-time.
-   * callback receives an array of { nickname, xp, badges } sorted by XP desc.
+   * callback receives an array of { nickname, xp, badges, hidden } sorted by XP desc.
    */
   function onLeaderboard(callback, errorCallback) {
     init();
@@ -160,7 +168,8 @@ var Fire = (function () {
         entries.push({
           nickname: decodeNick(child.key),
           xp: val.xp || 0,
-          badges: val.badges || []
+          badges: val.badges || [],
+          hidden: !!val.hidden
         });
       });
       // Sort descending by XP
@@ -277,6 +286,7 @@ var Fire = (function () {
     syncTotalXp: syncTotalXp,
     syncMistakes: syncMistakes,
     awardBadge: awardBadge,
+    setHidden: setHidden,
     nicknameExists: nicknameExists,
     renameNickname: renameNickname,
     onLeaderboard: onLeaderboard,

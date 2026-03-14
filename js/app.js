@@ -9,9 +9,11 @@
   var nicknameBar = document.getElementById("nickname-bar");
   var nicknameForm = document.getElementById("nickname-form");
   var nicknameInput = document.getElementById("nickname-input");
+  var nicknameHidden = document.getElementById("nickname-hidden");
   var nicknameDismiss = document.getElementById("nickname-dismiss");
 
   var currentNick = Fire.getNickname();
+  var currentHidden = false;
 
   if (!currentNick && nicknameBar) {
     nicknameBar.style.display = "";
@@ -21,11 +23,13 @@
     currentNick = val;
     nicknameBar.style.display = "none";
     nicknameInput.setCustomValidity("");
+    Fire.setHidden(nicknameHidden.checked);
     Fire.syncTotalXp();
     checkAndAwardXpBadges();
     renderGlobalStats();
     showLeaderboardTab();
     Fire.onMyData(function (data) {
+      currentHidden = !!data.hidden;
       var earnedBadges = data.badges || [];
       renderBadges(earnedBadges);
       var firebaseXp = data.xp || 0;
@@ -49,9 +53,11 @@
       if (!val) return;
 
       var oldNick = Fire.getNickname();
+      var hiddenChecked = nicknameHidden.checked;
 
-      // Same nickname — just close the bar
+      // Same nickname — just save hidden flag and close
       if (oldNick && val === oldNick) {
+        Fire.setHidden(hiddenChecked);
         nicknameBar.style.display = "none";
         return;
       }
@@ -125,6 +131,7 @@
       nickChip.addEventListener("click", function () {
         nicknameBar.style.display = "";
         nicknameInput.value = currentNick || "";
+        nicknameHidden.checked = currentHidden;
         nicknameInput.focus();
       });
     }
@@ -259,6 +266,7 @@
 
   if (currentNick) {
     Fire.onMyData(function (data) {
+      currentHidden = !!data.hidden;
       var earnedBadges = data.badges || [];
       renderBadges(earnedBadges);
       // Sync local XP from Firebase (use the higher value)
@@ -283,15 +291,22 @@
   var leaderboardEl = document.getElementById("leaderboard");
 
   Fire.onLeaderboard(function (entries) {
-    if (!entries.length) {
+    // Filter out hidden users, but always show the current user
+    var visible = [];
+    for (var i = 0; i < entries.length; i++) {
+      var isMe = currentNick && entries[i].nickname === currentNick;
+      if (!entries[i].hidden || isMe) visible.push(entries[i]);
+    }
+
+    if (!visible.length) {
       leaderboardEl.innerHTML = '<p class="leaderboard-empty">Zatím tu nikdo není. Buď první!</p>';
       return;
     }
 
     var html = '<div class="lb-list">';
 
-    for (var i = 0; i < entries.length; i++) {
-      var e = entries[i];
+    for (var i = 0; i < visible.length; i++) {
+      var e = visible[i];
       var level = Math.floor(e.xp / 500) + 1;
       var isMe = currentNick && e.nickname === currentNick;
       var rankIcon = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
