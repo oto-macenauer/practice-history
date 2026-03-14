@@ -172,19 +172,33 @@ var Fire = (function () {
     });
   }
 
+  var _myDataRef = null;
+
   /** Listen to the current user's data in real-time. */
   function onMyData(callback) {
     init();
     var nick = getNickname();
     if (!nick) return;
-    db.ref("leaderboard/" + encodeNick(nick)).on("value", function (snap) {
+    // Detach previous listener if any
+    if (_myDataRef) _myDataRef.off();
+    _myDataRef = db.ref("leaderboard/" + encodeNick(nick));
+    _myDataRef.on("value", function (snap) {
       var val = snap.val();
       callback(val || { xp: 0, badges: [] });
     });
   }
 
+  /** Detach the current user's data listener. */
+  function offMyData() {
+    if (_myDataRef) {
+      _myDataRef.off();
+      _myDataRef = null;
+    }
+  }
+
   /** Stop all listeners. */
   function off() {
+    offMyData();
     if (leaderboardRef) leaderboardRef.off();
   }
 
@@ -227,6 +241,8 @@ var Fire = (function () {
           callback(null);
           return;
         }
+        // Detach listener on old ref before modifying data
+        offMyData();
         // Write old data to new key, then delete old key
         oldData.lastUpdate = firebase.database.ServerValue.TIMESTAMP;
         newRef.set(oldData, function (err) {
@@ -234,8 +250,10 @@ var Fire = (function () {
             callback("Nepodařilo se přenést data: " + err.message);
             return;
           }
-          oldRef.remove();
+          // Set nickname BEFORE removing old data so any triggered
+          // listeners/transactions use the new nickname
           setNickname(newNick);
+          oldRef.remove();
           callback(null);
         });
       });
@@ -263,6 +281,7 @@ var Fire = (function () {
     renameNickname: renameNickname,
     onLeaderboard: onLeaderboard,
     onMyData: onMyData,
+    offMyData: offMyData,
     off: off
   };
 })();
