@@ -148,6 +148,36 @@ var Badges = (function () {
     return earned;
   }
 
+  /** Progressive badge groups — only the highest earned badge is shown per group. */
+  var PROGRESSIVE_GROUPS = [
+    ["xp-100", "xp-500", "xp-1000", "xp-2500", "xp-5000", "xp-10000", "xp-15000", "xp-25000", "xp-50000", "xp-100000"],
+    ["first-test", "attempts-10", "attempts-25", "attempts-50", "attempts-100"]
+  ];
+
+  /**
+   * Filter badge IDs for leaderboard display: keep only the highest
+   * from each progressive group, keep all non-grouped badges as-is.
+   */
+  function getLeaderboardBadges(badgeIds) {
+    var suppress = {};
+    for (var g = 0; g < PROGRESSIVE_GROUPS.length; g++) {
+      var group = PROGRESSIVE_GROUPS[g];
+      var highestIdx = -1;
+      for (var i = 0; i < group.length; i++) {
+        if (badgeIds.indexOf(group[i]) !== -1) {
+          highestIdx = i;
+        }
+      }
+      // Suppress all but the highest in this group
+      if (highestIdx >= 0) {
+        for (var i = 0; i < group.length; i++) {
+          if (i !== highestIdx) suppress[group[i]] = true;
+        }
+      }
+    }
+    return badgeIds.filter(function (id) { return !suppress[id]; });
+  }
+
   return {
     XP_BADGES: XP_BADGES,
     ACHIEVEMENT_BADGES: ACHIEVEMENT_BADGES,
@@ -156,6 +186,7 @@ var Badges = (function () {
     getById: getById,
     checkXpBadges: checkXpBadges,
     checkPerfectBadge: checkPerfectBadge,
-    checkAchievementBadges: checkAchievementBadges
+    checkAchievementBadges: checkAchievementBadges,
+    getLeaderboardBadges: getLeaderboardBadges
   };
 })();

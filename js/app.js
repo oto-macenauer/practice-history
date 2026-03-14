@@ -296,9 +296,10 @@
       var isMe = currentNick && e.nickname === currentNick;
       var rankIcon = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
 
+      var displayBadges = Badges.getLeaderboardBadges(e.badges);
       var badgeHtml = '';
-      for (var j = 0; j < e.badges.length; j++) {
-        var b = Badges.getById(e.badges[j]);
+      for (var j = 0; j < displayBadges.length; j++) {
+        var b = Badges.getById(displayBadges[j]);
         if (b) {
           badgeHtml += '<span class="lb-badge" title="' + escHtml(b.label) + '">' + b.icon + '</span>';
         }
@@ -306,14 +307,18 @@
 
       html += '<div class="lb-row' + (isMe ? ' lb-me' : '') + '">' +
         '<span class="lb-rank">' + rankIcon + '</span>' +
-        '<div class="lb-info">' +
-          '<div class="lb-nick">' + escHtml(e.nickname) + '</div>' +
-          '<div class="lb-meta">' +
-            '<span class="lb-xp">' + e.xp + ' XP</span>' +
-            '<span>Úr. ' + level + '</span>' +
+        '<div class="lb-content">' +
+          '<div class="lb-top">' +
+            '<div class="lb-info">' +
+              '<div class="lb-nick">' + escHtml(e.nickname) + '</div>' +
+              '<div class="lb-meta">' +
+                '<span class="lb-xp">' + e.xp + ' XP</span>' +
+                '<span>Úr. ' + level + '</span>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
+          (badgeHtml ? '<div class="lb-badges">' + badgeHtml + '</div>' : '') +
         '</div>' +
-        (badgeHtml ? '<span class="lb-badges">' + badgeHtml + '</span>' : '') +
         '</div>';
     }
 

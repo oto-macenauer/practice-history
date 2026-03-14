@@ -804,7 +804,7 @@ body {
 
 .lb-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.6rem;
   padding: 0.55rem 0.6rem;
   border-radius: 10px;
@@ -822,6 +822,17 @@ body {
   width: 1.6rem;
   text-align: center;
   flex-shrink: 0;
+  padding-top: 0.1rem;
+}
+
+.lb-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.lb-top {
+  display: flex;
+  align-items: center;
 }
 
 .lb-info {
@@ -853,9 +864,11 @@ body {
 }
 
 .lb-badges {
-  font-size: 0.85rem;
-  letter-spacing: 1px;
-  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
 }
 
 .lb-badge {
