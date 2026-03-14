@@ -94,6 +94,20 @@ var Stats = (function () {
     save(data);
   }
 
+  /** Add a single mistake immediately (called on each wrong answer). */
+  function addMistake(testId, questionText) {
+    var data = load();
+    var t = data.tests[testId] || {
+      bestPct: 0, bestScore: 0, bestTotal: 0,
+      attempts: 0, lastAttempt: null, xp: 0, mistakes: []
+    };
+    if (t.mistakes.indexOf(questionText) === -1) {
+      t.mistakes.push(questionText);
+    }
+    data.tests[testId] = t;
+    save(data);
+  }
+
   function getAllTests() {
     return load().tests;
   }
@@ -102,6 +116,7 @@ var Stats = (function () {
     getTest: getTest,
     recordRun: recordRun,
     addXp: addXp,
+    addMistake: addMistake,
     getTotalXp: getTotalXp,
     setTotalXp: setTotalXp,
     getAllTests: getAllTests

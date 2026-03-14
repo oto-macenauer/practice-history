@@ -281,6 +281,11 @@
         buttons[chosen].classList.add("incorrect");
         streak = 0;
         mistakeTexts.push(q.originalQuestion);
+        // Persist mistake immediately so it's not lost if the user leaves
+        Stats.addMistake(tid, q.originalQuestion);
+        if (Fire.getNickname()) {
+          Fire.syncMistakes(tid, Stats.getTest(tid).mistakes);
+        }
       }
 
       // Update HUD
@@ -318,14 +323,18 @@
 
       var pct = Math.round((score / total) * 100);
 
+      // Capture previous stats BEFORE recording the run (for improvement detection)
+      var prevStats = Stats.getTest(tid);
+      var prevBestPct = prevStats.bestPct || 0;
+      var prevAttempts = prevStats.attempts || 0;
+
       // XP already saved incrementally via Stats.addXp, pass 0 here
       if (!isMistakesMode) {
         Stats.recordRun(tid, score, total, mistakeTexts, 0, false);
       } else {
-        var prev = Stats.getTest(tid);
         var stillWrong = {};
         for (var i = 0; i < mistakeTexts.length; i++) stillWrong[mistakeTexts[i]] = true;
-        var updated = prev.mistakes.filter(function (m) { return stillWrong[m]; });
+        var updated = prevStats.mistakes.filter(function (m) { return stillWrong[m]; });
         Stats.recordRun(tid, 0, 0, updated, 0, true);
       }
 
@@ -350,6 +359,20 @@
         for (var bi = 0; bi < xpBadges.length; bi++) {
           Fire.awardBadge(xpBadges[bi]);
           _newBadges.push(xpBadges[bi]);
+        }
+        // Achievement badges
+        var achBadges = Badges.checkAchievementBadges({
+          testId: tid,
+          score: score,
+          total: total,
+          isMistakesMode: isMistakesMode,
+          bestStreak: bestStreak,
+          prevBestPct: prevBestPct,
+          prevAttempts: prevAttempts
+        });
+        for (var ai = 0; ai < achBadges.length; ai++) {
+          Fire.awardBadge(achBadges[ai]);
+          _newBadges.push(achBadges[ai]);
         }
         // Sync total XP
         Fire.syncTotalXp();
