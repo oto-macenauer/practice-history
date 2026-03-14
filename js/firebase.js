@@ -188,6 +188,60 @@ var Fire = (function () {
     if (leaderboardRef) leaderboardRef.off();
   }
 
+  /**
+   * Check if a nickname already exists in Firebase.
+   * callback(exists: boolean)
+   */
+  function nicknameExists(nick, callback) {
+    init();
+    var ref = db.ref("leaderboard/" + encodeNick(nick));
+    ref.once("value", function (snap) {
+      callback(snap.exists());
+    }, function () {
+      callback(false);
+    });
+  }
+
+  /**
+   * Rename nickname: move all data from oldNick to newNick in Firebase.
+   * Fails if newNick already exists.
+   * callback(error: string|null)
+   */
+  function renameNickname(oldNick, newNick, callback) {
+    init();
+    var oldRef = db.ref("leaderboard/" + encodeNick(oldNick));
+    var newRef = db.ref("leaderboard/" + encodeNick(newNick));
+
+    // First check that the new nickname doesn't already exist
+    newRef.once("value", function (newSnap) {
+      if (newSnap.exists()) {
+        callback("Přezdívka „" + newNick + "" už je zabraná.");
+        return;
+      }
+      // Read old data
+      oldRef.once("value", function (oldSnap) {
+        var oldData = oldSnap.val();
+        if (!oldData) {
+          // No old data to transfer — just set the new nickname
+          setNickname(newNick);
+          callback(null);
+          return;
+        }
+        // Write old data to new key, then delete old key
+        oldData.lastUpdate = firebase.database.ServerValue.TIMESTAMP;
+        newRef.set(oldData, function (err) {
+          if (err) {
+            callback("Nepodařilo se přenést data: " + err.message);
+            return;
+          }
+          oldRef.remove();
+          setNickname(newNick);
+          callback(null);
+        });
+      });
+    });
+  }
+
   // Firebase keys can't contain . $ # [ ] /
   function encodeNick(nick) {
     return nick.replace(/[.$#\[\]\/]/g, "_");
@@ -205,6 +259,8 @@ var Fire = (function () {
     syncTotalXp: syncTotalXp,
     syncMistakes: syncMistakes,
     awardBadge: awardBadge,
+    nicknameExists: nicknameExists,
+    renameNickname: renameNickname,
     onLeaderboard: onLeaderboard,
     onMyData: onMyData,
     off: off

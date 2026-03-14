@@ -17,34 +17,79 @@
     nicknameBar.style.display = "";
   }
 
+  function activateNickname(val) {
+    currentNick = val;
+    nicknameBar.style.display = "none";
+    nicknameInput.setCustomValidity("");
+    Fire.syncTotalXp();
+    checkAndAwardXpBadges();
+    renderGlobalStats();
+    showLeaderboardTab();
+    Fire.onMyData(function (data) {
+      var earnedBadges = data.badges || [];
+      renderBadges(earnedBadges);
+      var firebaseXp = data.xp || 0;
+      if (firebaseXp > Stats.getTotalXp()) {
+        Stats.setTotalXp(firebaseXp);
+        totalXp = firebaseXp;
+        renderGlobalStats();
+      }
+      var maxXp = Math.max(Stats.getTotalXp(), firebaseXp);
+      var xpBadges = Badges.checkXpBadges(maxXp, earnedBadges);
+      for (var i = 0; i < xpBadges.length; i++) {
+        Fire.awardBadge(xpBadges[i]);
+      }
+    });
+  }
+
   if (nicknameForm) {
     nicknameForm.addEventListener("submit", function (e) {
       e.preventDefault();
       var val = nicknameInput.value.trim();
       if (!val) return;
-      Fire.setNickname(val);
-      nicknameBar.style.display = "none";
-      currentNick = val;
-      Fire.syncTotalXp();
-      checkAndAwardXpBadges();
-      renderGlobalStats();
-      // Show leaderboard tab now that we have a nickname
-      showLeaderboardTab();
-      Fire.onMyData(function (data) {
-        var earnedBadges = data.badges || [];
-        renderBadges(earnedBadges);
-        var firebaseXp = data.xp || 0;
-        if (firebaseXp > Stats.getTotalXp()) {
-          Stats.setTotalXp(firebaseXp);
-          totalXp = firebaseXp;
-          renderGlobalStats();
-        }
-        var maxXp = Math.max(Stats.getTotalXp(), firebaseXp);
-        var xpBadges = Badges.checkXpBadges(maxXp, earnedBadges);
-        for (var i = 0; i < xpBadges.length; i++) {
-          Fire.awardBadge(xpBadges[i]);
-        }
-      });
+
+      var oldNick = Fire.getNickname();
+
+      // Same nickname — just close the bar
+      if (oldNick && val === oldNick) {
+        nicknameBar.style.display = "none";
+        return;
+      }
+
+      // Disable input while checking
+      nicknameInput.disabled = true;
+
+      if (oldNick) {
+        // Rename: transfer data from old to new, block if new exists
+        Fire.renameNickname(oldNick, val, function (err) {
+          nicknameInput.disabled = false;
+          if (err) {
+            nicknameInput.setCustomValidity(err);
+            nicknameInput.reportValidity();
+            return;
+          }
+          activateNickname(val);
+        });
+      } else {
+        // First time: check the nickname isn't taken
+        Fire.nicknameExists(val, function (exists) {
+          nicknameInput.disabled = false;
+          if (exists) {
+            nicknameInput.setCustomValidity("Přezdívka „" + val + "" už je zabraná.");
+            nicknameInput.reportValidity();
+            return;
+          }
+          Fire.setNickname(val);
+          activateNickname(val);
+        });
+      }
+    });
+  }
+
+  // Clear validation message on input change
+  if (nicknameInput) {
+    nicknameInput.addEventListener("input", function () {
+      nicknameInput.setCustomValidity("");
     });
   }
 
