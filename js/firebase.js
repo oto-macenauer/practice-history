@@ -215,7 +215,7 @@ var Fire = (function () {
     // First check that the new nickname doesn't already exist
     newRef.once("value", function (newSnap) {
       if (newSnap.exists()) {
-        callback("Přezdívka „" + newNick + "" už je zabraná.");
+        callback("P\u0159ezd\u00edvka \u201E" + newNick + "\u201C u\u017E je zabran\u00e1.");
         return;
       }
       // Read old data

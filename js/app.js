@@ -75,7 +75,7 @@
         Fire.nicknameExists(val, function (exists) {
           nicknameInput.disabled = false;
           if (exists) {
-            nicknameInput.setCustomValidity("Přezdívka „" + val + "" už je zabraná.");
+            nicknameInput.setCustomValidity("P\u0159ezd\u00edvka \u201E" + val + "\u201C u\u017E je zabran\u00e1.");
             nicknameInput.reportValidity();
             return;
           }
