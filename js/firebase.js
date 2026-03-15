@@ -64,6 +64,7 @@ var Fire = (function () {
         var localXp = Stats.getTotalXp();
         return {
           xp: localXp,
+          totalAttempts: Stats.getTotalAttempts(),
           badges: [],
           lastUpdate: firebase.database.ServerValue.TIMESTAMP
         };
@@ -75,7 +76,19 @@ var Fire = (function () {
     });
   }
 
-  /** Sync total XP bidirectionally — use the higher of local and Firebase. */
+  /** Increment totalAttempts in Firebase (called on each non-mistakes test completion). */
+  function addAttempt() {
+    init();
+    var nick = getNickname();
+    if (!nick) return;
+
+    var attRef = db.ref("leaderboard/" + encodeNick(nick) + "/totalAttempts");
+    attRef.transaction(function (current) {
+      return (current || 0) + 1;
+    });
+  }
+
+  /** Sync total XP and totalAttempts bidirectionally — use the higher of local and Firebase. */
   function syncTotalXp() {
     init();
     var nick = getNickname();
@@ -83,25 +96,29 @@ var Fire = (function () {
 
     var userRef = db.ref("leaderboard/" + encodeNick(nick));
     var localXp = Stats.getTotalXp();
+    var localAttempts = Stats.getTotalAttempts();
 
     userRef.transaction(function (current) {
       if (current === null) {
         return {
           xp: localXp,
+          totalAttempts: localAttempts,
           badges: [],
           lastUpdate: firebase.database.ServerValue.TIMESTAMP
         };
       }
-      var firebaseXp = current.xp || 0;
-      var maxXp = Math.max(localXp, firebaseXp);
-      current.xp = maxXp;
+      current.xp = Math.max(localXp, current.xp || 0);
+      current.totalAttempts = Math.max(localAttempts, current.totalAttempts || 0);
       current.lastUpdate = firebase.database.ServerValue.TIMESTAMP;
       return current;
     }, function (error, committed, snapshot) {
       if (!error && snapshot) {
-        var serverXp = (snapshot.val() && snapshot.val().xp) || 0;
-        if (serverXp > Stats.getTotalXp()) {
-          Stats.setTotalXp(serverXp);
+        var val = snapshot.val() || {};
+        if ((val.xp || 0) > Stats.getTotalXp()) {
+          Stats.setTotalXp(val.xp);
+        }
+        if ((val.totalAttempts || 0) > Stats.getTotalAttempts()) {
+          Stats.setTotalAttempts(val.totalAttempts);
         }
       }
     });
@@ -283,6 +300,7 @@ var Fire = (function () {
     setNickname: setNickname,
     getNickname: getNickname,
     addXp: addXp,
+    addAttempt: addAttempt,
     syncTotalXp: syncTotalXp,
     syncMistakes: syncMistakes,
     awardBadge: awardBadge,

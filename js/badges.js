@@ -101,14 +101,11 @@ var Badges = (function () {
 
     // Gather aggregate stats
     var allTests = Stats.getAllTests();
-    var totalAttempts = 0;
+    var totalAttempts = Stats.getTotalAttempts();
     var testsWithAttempts = 0;
     for (var key in allTests) {
       if (allTests.hasOwnProperty(key)) {
-        var t = allTests[key];
-        // Stats are already updated by the time this runs, so use current values
-        totalAttempts += t.attempts || 0;
-        if (t.attempts > 0) testsWithAttempts++;
+        if ((allTests[key].attempts || 0) > 0) testsWithAttempts++;
       }
     }
 

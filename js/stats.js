@@ -22,10 +22,21 @@ var Stats = (function () {
 
   function load() {
     try {
-      return JSON.parse(localStorage.getItem(KEY)) || { totalXp: 0, tests: {} };
+      var d = JSON.parse(localStorage.getItem(KEY)) || { totalXp: 0, tests: {} };
+      if (typeof d.totalAttempts !== "number") d.totalAttempts = calcTotalAttempts(d);
+      return d;
     } catch (_) {
-      return { totalXp: 0, tests: {} };
+      return { totalXp: 0, totalAttempts: 0, tests: {} };
     }
+  }
+
+  /** Derive totalAttempts from per-test data (migration for existing users). */
+  function calcTotalAttempts(data) {
+    var sum = 0;
+    for (var key in data.tests) {
+      if (data.tests.hasOwnProperty(key)) sum += data.tests[key].attempts || 0;
+    }
+    return sum;
   }
 
   function save(data) {
@@ -56,6 +67,7 @@ var Stats = (function () {
         t.bestTotal = total;
       }
       t.attempts++;
+      data.totalAttempts = (data.totalAttempts || 0) + 1;
       t.mistakes = mistakeTexts;
     } else {
       // Only shrink the mistake list and add XP
@@ -108,6 +120,16 @@ var Stats = (function () {
     save(data);
   }
 
+  function getTotalAttempts() {
+    return load().totalAttempts || 0;
+  }
+
+  function setTotalAttempts(value) {
+    var data = load();
+    data.totalAttempts = value;
+    save(data);
+  }
+
   function getAllTests() {
     return load().tests;
   }
@@ -119,6 +141,8 @@ var Stats = (function () {
     addMistake: addMistake,
     getTotalXp: getTotalXp,
     setTotalXp: setTotalXp,
+    getTotalAttempts: getTotalAttempts,
+    setTotalAttempts: setTotalAttempts,
     getAllTests: getAllTests
   };
 })();

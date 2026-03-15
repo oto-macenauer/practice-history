@@ -338,6 +338,11 @@
         Stats.recordRun(tid, 0, 0, updated, 0, true);
       }
 
+      // Sync attempt count to Firebase
+      if (!isMistakesMode && Fire.getNickname()) {
+        Fire.addAttempt();
+      }
+
       // Sync mistakes to Firebase
       if (Fire.getNickname()) {
         var currentMistakes = isMistakesMode

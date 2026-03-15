@@ -269,12 +269,16 @@
       currentHidden = !!data.hidden;
       var earnedBadges = data.badges || [];
       renderBadges(earnedBadges);
-      // Sync local XP from Firebase (use the higher value)
+      // Sync local XP and attempts from Firebase (use the higher value)
       var firebaseXp = data.xp || 0;
+      var firebaseAttempts = data.totalAttempts || 0;
       if (firebaseXp > Stats.getTotalXp()) {
         Stats.setTotalXp(firebaseXp);
         totalXp = firebaseXp;
         renderGlobalStats();
+      }
+      if (firebaseAttempts > Stats.getTotalAttempts()) {
+        Stats.setTotalAttempts(firebaseAttempts);
       }
       // Award XP badges using the higher XP
       var maxXp = Math.max(Stats.getTotalXp(), firebaseXp);
