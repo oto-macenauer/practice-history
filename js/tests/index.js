@@ -4,6 +4,14 @@
  */
 var TEST_REGISTRY = [
   {
+    id: "habsburkove",
+    title: "Habsburkové",
+    description: "nástup Habsburků, Ferdinand I., Maxmilián II., Rudolf II., alchymisté, renesance, náboženská svoboda",
+    icon: "🏰",
+    accent: "#6c5ce7",
+    file: "js/tests/habsburkove.js"
+  },
+  {
     id: "husitske-valky",
     title: "Husitské války a české země po nich",
     description: "Jan Hus, husité, Jan Žižka, křížové výpravy, bitva u Lipan, Jiří z Poděbrad, Jagellonci",
