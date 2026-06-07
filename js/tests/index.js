@@ -26,5 +26,13 @@ var TEST_REGISTRY = [
     icon: "👑",
     accent: "#fdcb6e",
     file: "js/tests/lucemburkove.js"
+  },
+  {
+    id: "voda-a-podnebi",
+    title: "Voda v krajině a podnebí",
+    description: "dělení vody, tok řeky, rybník × přehrada × jezero, úmoří ČR, povodí, řeky, počasí a podnebí, podnebné pásy",
+    icon: "💧",
+    accent: "#0984e3",
+    file: "js/tests/voda-a-podnebi.js"
   }
 ];
